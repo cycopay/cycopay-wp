@@ -1,82 +1,85 @@
 jQuery(document).ready(function ($) {
-    var openedWindow;
+  // listen for hashchange caused by the cycopay plugin
+  var payload;
 
-    const onhashchange = event => {
-        openPopup();
-        console.log('hash changed ')
+  const onhashchange = (event) => {
+    const checkout_url = script_data?.checkout_url;
+    const oldURL = event?.oldURL;
+    if (oldURL.includes(checkout_url)) {
+      openPopup();
+    }
+  };
+
+  window.onhashchange = onhashchange;
+
+  const openPopup = () => {
+    const href = window.location.href;
+    const strToReplace = "paypopup:";
+
+    const result = href.substring(
+      href.lastIndexOf(strToReplace) + strToReplace.length
+    );
+
+    const params = Object.fromEntries(new URLSearchParams(result));
+
+    const token = params.token;
+    if (token) {
+      payload = JSON.parse(b64_to_utf8(token));
+    }
+
+    console.log("payload ", payload);
+
+    const options = {
+      ...payload,
     };
 
-    window.onhashchange = onhashchange;
+    payWithCycoPay(options);
+  };
 
-    const openPopup = () => {
-        const href = window.location.href;
-        const strToReplace = "paypopup:";
+  const b64_to_utf8 = (str) => {
+    return decodeURIComponent(escape(window.atob(str)));
+  };
 
-        const result = href.substring(href.lastIndexOf(strToReplace) + strToReplace.length);
+  const messageEventHandler = (event) => {
+    let data = event.detail;
 
-        const params = Object.fromEntries(new URLSearchParams(result));
+    const status = data?.status;
+    const successURL = payload?.successURL;
+    const failureUrl = payload?.failureURL;
 
-        const url = params?.url
+    const paymentDetails = {
+      status,
+      apiKey: payload?.apiKey,
+      metadata: payload?.metadata,
+    };
 
-        openedWindow = window.open(url,
-            'popUpWindow',
-            'height=800,width=500,left=100,top=100,resizable=yes,scrollbars=yes,toolbar=yes,menubar=no,location=no,directories=no, status=yes');
-    }
-
-    const messageEventHandler = (event) => {
-        let data = event?.data;
-        if (data) {
-            data = JSON.parse(data)
+    jQuery.ajax({
+      type: "POST",
+      url: script_data.ajaxurl,
+      data: {
+        action: "update_wc_status_ajax",
+        paymentDetails,
+      },
+      success: function (data, textStatus, XMLHttpRequest) {
+        if (status == "completed") {
+          window.location.replace(successURL);
+        } else {
+          window.location.replace(failureUrl);
         }
-
-        // let allowed orign
-        let allowedOrigin = [
-            'https://pay.cycopay.com'
-        ]
-
-        // if its not among allowed origins then close window and do nothing
-        // to prevent malicious attempts
-        if (!allowedOrigin.includes(event?.origin)) {
-            openedWindow.close()
+      },
+      error: function (XMLHttpRequest, textStatus, errorThrown) {
+        if (status == "completed") {
+          window.location.replace(successURL);
+        } else {
+          window.location.replace(failureUrl);
         }
+      },
+    });
 
-        const status = data?.paymentDetails?.status;
-        const successURL = data?.paymentDetails?.successURL;
-        const failureUrl = data?.paymentDetails?.failureURL;
+    // ...
+  };
 
-        jQuery.ajax({
-            type: 'POST',
-            url: script_data.ajaxurl,
-            data: {
-                action: 'update_wc_status_ajax',
-                paymentDetails: data?.paymentDetails
-            },
-            success: function (data, textStatus, XMLHttpRequest) {
-                openedWindow.close();
-
-                if (status == "completed") {
-                    window.location.replace(successURL);
-                } else {
-                    window.location.replace(failureUrl);
-                }
-            },
-            error: function (XMLHttpRequest, textStatus, errorThrown) {
-                console.log('errorThrown ', errorThrown)
-                openedWindow.close();
-
-                if (status == "completed") {
-                    window.location.replace(successURL);
-                } else {
-                    window.location.replace(failureUrl);
-                }
-            }
-        });
-
-
-        // ...
-    }
-
-    window.addEventListener("message", messageEventHandler, false);
-
-
+  document.addEventListener("cycopay_message", messageEventHandler);
+  console.log("listener added ");
+  //   window.addEventListener("message", messageEventHandler, false);
 });
