@@ -141,13 +141,8 @@ function cycopay_gateway_init()
                 //'type' => 'popup',
             );
 
-<<<<<<< HEAD
-            $cycopayApiUrl = "https://api.cycopay.com/api";
-      
-=======
           
             $cycopayApiUrl = "https://api.cycopay.com/api";
->>>>>>> parent of f45e38f (Revert "Revert "Revert "Revert "implemented cycopay modal"""")
             $cycopayUrl = $cycopayApiUrl . "/public/payment/create";
 
             $payment_description = '';
