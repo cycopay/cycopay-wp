@@ -144,8 +144,8 @@ function cycopay_gateway_init()
                 'type' => 'popup',
             );
 
-            $cycopayApiUrl = "http://localhost:5000/api";
-            // $cycopayApiUrl = "https://api.cycopay.com/api";
+            $cycopayApiUrl = "https://api.cycopay.com/api";
+      
             $cycopayUrl = $cycopayApiUrl . "/public/payment/create";
 
             $payment_description = '';
