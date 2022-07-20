@@ -6,7 +6,7 @@
  * Description: Provides a CycoPay payment gateway for woocommerce.
  * Requires at least: 5.0
  *
- * Version:     1.0.0
+ * Version:     1.0.2
  * @class       CycoPay_Gateway
  * @extends     WC_Payment_Gateway
  * @package     WooCommerce/Classes/Payment
@@ -101,36 +101,39 @@ function cycopay_gateway_init()
             $order = wc_get_order($order_id);
 
             // create payment link
-            $linkResponse = $this->create_payment_link($order);
-            $responseObj = json_decode(json_encode($linkResponse), true);
+            // $linkResponse = $this->create_payment_link($order);
+            // $responseObj = json_decode(json_encode($linkResponse), true);
 
-            if ($linkResponse->status == "fail") {
+            // if ($linkResponse->status == "fail") {
 
-                wc_add_notice('Error while generating payment link; ' . $linkResponse->message, 'error');
-                return array(
-                    'result' => 'failure',
-                );
-            }
+            //     wc_add_notice('Error while generating payment link; ' . $linkResponse->message, 'error');
+            //     return array(
+            //         'result' => 'failure',
+            //     );
+            // }
 
-            $popup_url =  $linkResponse->url;
+            // $popup_url = $linkResponse->url;
+
+            $payload = $this->create_payment_link_payload($order);
+
+            $encoded_data = base64_encode(json_encode($payload));
 
             $data = [
-                'url' => $linkResponse->url,
+                'token' => $encoded_data,
                 'key' => rand(5, 100),
             ];
 
             $queryString = http_build_query($data);
 
-
             // redirect to Cycopay gateway
             return array(
                 'result' => 'success',
-                'redirect' => $linkResponse->url,
+                'redirect' => '#paypopup:' . $queryString,
             );
         }
 
         // create payment link
-        public function create_payment_link($order)
+        public function create_payment_link_payload($order)
         {
             $currency = $order->currency;
             $total = $order->total;
@@ -138,11 +141,11 @@ function cycopay_gateway_init()
             $metadata = array(
                 'route' => 'woocommerce',
                 'order-id' => $order->id,
-                //'type' => 'popup',
+                'type' => 'popup',
             );
 
-          
             $cycopayApiUrl = "https://api.cycopay.com/api";
+
             $cycopayUrl = $cycopayApiUrl . "/public/payment/create";
 
             $payment_description = '';
@@ -168,19 +171,21 @@ function cycopay_gateway_init()
                 'currency' => get_woocommerce_currency(),
             );
 
+            return $payload;
+
             // make post request to generate payment link
-            $response = wp_remote_post($cycopayUrl, array(
-                'headers' => array('Content-Type' => 'application/json; charset=utf-8'),
-                'body' => json_encode($payload),
-                'method' => 'POST',
-                'timeout' => 45,
-                'data_format' => 'body',
-            ));
+            // $response = wp_remote_post($cycopayUrl, array(
+            //     'headers' => array('Content-Type' => 'application/json; charset=utf-8'),
+            //     'body' => json_encode($payload),
+            //     'method' => 'POST',
+            //     'timeout' => 45,
+            //     'data_format' => 'body',
+            // ));
 
-            // Retrieve the body's response if no errors found
-            $response_body = json_decode(wp_remote_retrieve_body($response));
+            // // Retrieve the body's response if no errors found
+            // $response_body = json_decode(wp_remote_retrieve_body($response));
 
-            return ($response_body);
+            // return ($response_body);
         }
 
         /**
@@ -277,10 +282,14 @@ add_action('wp_enqueue_scripts', 'wpb_adding_scripts');
 function wpb_adding_scripts()
 {
 
-    wp_register_script('main_js_script', plugins_url('/js/main.js', __FILE__), array('jquery'), true);
+//
+    wp_enqueue_script('cycopay_modaljs', 'https://cdn.cycopay.com/bundle.js', null, null, true);
+
+    wp_register_script('main_js_script', plugins_url('/js/main.js', __FILE__), array('jquery', 'jquery-ui-core', 'jquery-ui-dialog'), true);
     wp_enqueue_script('main_js_script');
     wp_localize_script('main_js_script', 'script_data', array(
         'ajaxurl' => admin_url('admin-ajax.php'),
+        'checkout_url' => wc_get_checkout_url(),
         'fail_message' => __('Connection to server failed. Check the mail credentials.', 'script-checker'),
         'success_message' => __('Connection successful. ', 'script-checker'),
     )
