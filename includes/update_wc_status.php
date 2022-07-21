@@ -37,6 +37,9 @@ function update_wc_status_ajax()
     $metadata = (object) $paymentDetails->metadata;
     $status = $paymentDetails->status;
 
+    print_r('$status '.$status);
+
+
     if (!isset($metadata->{'order-id'})) {
         $data = array(
             'error' => 'Order not found',
